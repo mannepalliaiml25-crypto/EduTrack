@@ -10,12 +10,13 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock,
-  Target
+  Target,
+  LogOut
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
 const StudentDashboard = () => {
-  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
   
   // Mock data
   const attendancePercentage = 72;
@@ -33,14 +34,17 @@ const StudentDashboard = () => {
               EduTrack
             </h1>
           </div>
-          <Button variant="outline" onClick={() => navigate("/")}>Logout</Button>
+          <Button variant="outline" onClick={signOut}>
+            <LogOut className="w-4 h-4 mr-2" />
+            Logout
+          </Button>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-8">
         {/* Welcome Section */}
         <div className="mb-8">
-          <h2 className="text-3xl font-bold mb-2">Welcome back, Student!</h2>
+          <h2 className="text-3xl font-bold mb-2">Welcome back, {user?.user_metadata?.full_name || 'Student'}!</h2>
           <p className="text-muted-foreground">Here's your academic overview</p>
         </div>
 
