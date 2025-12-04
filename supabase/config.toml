@@ -1,1 +1,4 @@
 project_id = "vwggbbpabwjwewretkbi"
+
+[functions.study-recommendations]
+verify_jwt = true

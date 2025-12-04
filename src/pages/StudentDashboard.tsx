@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -11,11 +12,14 @@ import {
   CheckCircle2,
   Clock,
   Target,
-  LogOut
+  LogOut,
+  ArrowLeft
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { StudyRecommendations } from "@/components/StudyRecommendations";
 
 const StudentDashboard = () => {
+  const [showAIRecommendations, setShowAIRecommendations] = useState(false);
   const { user, signOut } = useAuth();
   
   // Mock data
@@ -142,7 +146,7 @@ const StudentDashboard = () => {
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-medium transition-shadow cursor-pointer">
+          <Card className="hover:shadow-medium transition-shadow cursor-pointer" onClick={() => setShowAIRecommendations(true)}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <BookOpen className="w-5 h-5 text-accent" />
@@ -159,6 +163,21 @@ const StudentDashboard = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* AI Recommendations Section */}
+        {showAIRecommendations && (
+          <div className="mb-8">
+            <Button 
+              variant="ghost" 
+              className="mb-4"
+              onClick={() => setShowAIRecommendations(false)}
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Dashboard
+            </Button>
+            <StudyRecommendations />
+          </div>
+        )}
 
         {/* Recent Activity */}
         <Card>
