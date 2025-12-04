@@ -8,12 +8,13 @@ import {
   CheckCircle2,
   Clock,
   UserCheck,
-  GraduationCap
+  GraduationCap,
+  LogOut
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
 const LecturerDashboard = () => {
-  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-background">
@@ -26,14 +27,17 @@ const LecturerDashboard = () => {
               EduTrack
             </h1>
           </div>
-          <Button variant="outline" onClick={() => navigate("/")}>Logout</Button>
+          <Button variant="outline" onClick={signOut}>
+            <LogOut className="w-4 h-4 mr-2" />
+            Logout
+          </Button>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-8">
         {/* Welcome Section */}
         <div className="mb-8">
-          <h2 className="text-3xl font-bold mb-2">Welcome back, Professor!</h2>
+          <h2 className="text-3xl font-bold mb-2">Welcome back, {user?.user_metadata?.full_name || 'Professor'}!</h2>
           <p className="text-muted-foreground">Manage your classes and student performance</p>
         </div>
 

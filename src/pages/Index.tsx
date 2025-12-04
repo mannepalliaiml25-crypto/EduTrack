@@ -39,7 +39,7 @@ const Index = () => {
         <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
           <Card 
             className="group relative overflow-hidden border-2 border-border hover:border-primary transition-all duration-300 cursor-pointer hover:shadow-strong"
-            onClick={() => navigate("/student")}
+            onClick={() => navigate("/auth?role=student")}
           >
             <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-accent/10 opacity-0 group-hover:opacity-100 transition-opacity" />
             <div className="relative p-8 space-y-6">
@@ -61,7 +61,7 @@ const Index = () => {
 
           <Card 
             className="group relative overflow-hidden border-2 border-border hover:border-accent transition-all duration-300 cursor-pointer hover:shadow-strong"
-            onClick={() => navigate("/lecturer")}
+            onClick={() => navigate("/auth?role=lecturer")}
           >
             <div className="absolute inset-0 bg-gradient-to-br from-accent/10 to-warning/10 opacity-0 group-hover:opacity-100 transition-opacity" />
             <div className="relative p-8 space-y-6">
