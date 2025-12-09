@@ -14,6 +14,72 @@ export type Database = {
   }
   public: {
     Tables: {
+      attendance_records: {
+        Row: {
+          attendance_date: string
+          created_at: string
+          id: string
+          lecturer_id: string
+          status: string
+          student_id: string
+          subject: string
+        }
+        Insert: {
+          attendance_date?: string
+          created_at?: string
+          id?: string
+          lecturer_id: string
+          status?: string
+          student_id: string
+          subject: string
+        }
+        Update: {
+          attendance_date?: string
+          created_at?: string
+          id?: string
+          lecturer_id?: string
+          status?: string
+          student_id?: string
+          subject?: string
+        }
+        Relationships: []
+      }
+      attendance_requests: {
+        Row: {
+          created_at: string
+          id: string
+          lecturer_id: string | null
+          reason: string | null
+          request_date: string
+          status: string
+          student_id: string
+          subject: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lecturer_id?: string | null
+          reason?: string | null
+          request_date?: string
+          status?: string
+          student_id: string
+          subject: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lecturer_id?: string | null
+          reason?: string | null
+          request_date?: string
+          status?: string
+          student_id?: string
+          subject?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -40,6 +106,30 @@ export type Database = {
           full_name?: string
           id?: string
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      students: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          student_name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          student_name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          student_name?: string
           user_id?: string
         }
         Relationships: []

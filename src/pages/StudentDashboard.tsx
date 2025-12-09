@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { 
   GraduationCap, 
   Calendar, 
@@ -13,19 +16,93 @@ import {
   Clock,
   Target,
   LogOut,
-  ArrowLeft
+  ArrowLeft,
+  Send
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { StudyRecommendations } from "@/components/StudyRecommendations";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+
+interface AttendanceRequest {
+  id: string;
+  subject: string;
+  request_date: string;
+  reason: string | null;
+  status: string;
+  created_at: string;
+}
 
 const StudentDashboard = () => {
   const [showAIRecommendations, setShowAIRecommendations] = useState(false);
+  const [showRequestDialog, setShowRequestDialog] = useState(false);
+  const [myRequests, setMyRequests] = useState<AttendanceRequest[]>([]);
+  const [subject, setSubject] = useState("");
+  const [reason, setReason] = useState("");
+  const [loading, setLoading] = useState(false);
   const { user, signOut } = useAuth();
   
   // Mock data
   const attendancePercentage = 72;
   const requiredPercentage = 75;
   const performanceScore = 78;
+
+  const fetchMyRequests = async () => {
+    const { data, error } = await supabase
+      .from('attendance_requests')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    if (error) {
+      console.error('Error fetching requests:', error);
+      return;
+    }
+
+    setMyRequests(data || []);
+  };
+
+  useEffect(() => {
+    fetchMyRequests();
+  }, []);
+
+  const handleSubmitRequest = async () => {
+    if (!subject.trim()) {
+      toast.error('Please enter a subject');
+      return;
+    }
+
+    setLoading(true);
+    const { error } = await supabase
+      .from('attendance_requests')
+      .insert({
+        student_id: user?.id,
+        subject: subject.trim(),
+        reason: reason.trim() || null
+      });
+
+    if (error) {
+      toast.error('Failed to submit request');
+      console.error('Error submitting request:', error);
+    } else {
+      toast.success('Attendance request submitted!');
+      setSubject("");
+      setReason("");
+      setShowRequestDialog(false);
+      fetchMyRequests();
+    }
+    setLoading(false);
+  };
+
+  const pendingCount = myRequests.filter(r => r.status === 'pending').length;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-background">
@@ -107,7 +184,7 @@ const StudentDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
-                <span className="text-3xl font-bold">2</span>
+                <span className="text-3xl font-bold">{pendingCount}</span>
                 <Clock className="w-8 h-8 text-accent" />
               </div>
             </CardContent>
@@ -131,7 +208,7 @@ const StudentDashboard = () => {
 
         {/* Quick Actions */}
         <div className="grid md:grid-cols-2 gap-6 mb-8">
-          <Card className="hover:shadow-medium transition-shadow cursor-pointer">
+          <Card className="hover:shadow-medium transition-shadow">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-primary" />
@@ -142,7 +219,47 @@ const StudentDashboard = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button className="w-full">Create Request</Button>
+              <Dialog open={showRequestDialog} onOpenChange={setShowRequestDialog}>
+                <DialogTrigger asChild>
+                  <Button className="w-full">Create Request</Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Submit Attendance Request</DialogTitle>
+                    <DialogDescription>
+                      Request attendance approval for a missed class
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 mt-4">
+                    <div>
+                      <Label htmlFor="subject">Subject / Class Name</Label>
+                      <Input
+                        id="subject"
+                        placeholder="e.g., Data Structures"
+                        value={subject}
+                        onChange={(e) => setSubject(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="reason">Reason (optional)</Label>
+                      <Textarea
+                        id="reason"
+                        placeholder="Why did you miss the class?"
+                        value={reason}
+                        onChange={(e) => setReason(e.target.value)}
+                      />
+                    </div>
+                    <Button 
+                      className="w-full" 
+                      onClick={handleSubmitRequest}
+                      disabled={loading}
+                    >
+                      <Send className="w-4 h-4 mr-2" />
+                      Submit Request
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </CardContent>
           </Card>
 
@@ -178,6 +295,51 @@ const StudentDashboard = () => {
             <StudyRecommendations />
           </div>
         )}
+
+        {/* My Requests */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>My Attendance Requests</CardTitle>
+            <CardDescription>Your recent attendance requests and their status</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {myRequests.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">No requests submitted yet</p>
+            ) : (
+              <div className="space-y-4">
+                {myRequests.map((request) => (
+                  <div key={request.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                    <div className="flex items-center gap-3">
+                      {request.status === 'approved' ? (
+                        <CheckCircle2 className="w-5 h-5 text-success" />
+                      ) : request.status === 'denied' ? (
+                        <AlertCircle className="w-5 h-5 text-destructive" />
+                      ) : (
+                        <Clock className="w-5 h-5 text-warning" />
+                      )}
+                      <div>
+                        <p className="font-medium">{request.subject}</p>
+                        <p className="text-sm text-muted-foreground">{request.request_date}</p>
+                        {request.reason && (
+                          <p className="text-sm text-muted-foreground">{request.reason}</p>
+                        )}
+                      </div>
+                    </div>
+                    <Badge 
+                      variant={
+                        request.status === 'approved' ? 'default' : 
+                        request.status === 'denied' ? 'destructive' : 
+                        'secondary'
+                      }
+                    >
+                      {request.status}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Recent Activity */}
         <Card>
