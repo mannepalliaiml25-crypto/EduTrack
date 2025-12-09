@@ -1,4 +1,7 @@
 project_id = "vwggbbpabwjwewretkbi"
 
+[functions.generate-quiz]
+verify_jwt = true
+
 [functions.study-recommendations]
 verify_jwt = true

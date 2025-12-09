@@ -17,11 +17,13 @@ import {
   Target,
   LogOut,
   ArrowLeft,
-  Send
+  Send,
+  Brain
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { StudyRecommendations } from "@/components/StudyRecommendations";
 import { supabase } from "@/integrations/supabase/client";
+import { AdaptiveQuiz } from "@/components/AdaptiveQuiz";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -43,6 +45,7 @@ interface AttendanceRequest {
 
 const StudentDashboard = () => {
   const [showAIRecommendations, setShowAIRecommendations] = useState(false);
+  const [showQuiz, setShowQuiz] = useState(false);
   const [showRequestDialog, setShowRequestDialog] = useState(false);
   const [myRequests, setMyRequests] = useState<AttendanceRequest[]>([]);
   const [subject, setSubject] = useState("");
@@ -207,7 +210,7 @@ const StudentDashboard = () => {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid md:grid-cols-2 gap-6 mb-8">
+        <div className="grid md:grid-cols-3 gap-6 mb-8">
           <Card className="hover:shadow-medium transition-shadow">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -279,6 +282,23 @@ const StudentDashboard = () => {
               </Button>
             </CardContent>
           </Card>
+
+          <Card className="hover:shadow-medium transition-shadow cursor-pointer" onClick={() => setShowQuiz(true)}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Brain className="w-5 h-5 text-primary" />
+                Adaptive Quiz
+              </CardTitle>
+              <CardDescription>
+                Test your knowledge with AI-generated questions
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button variant="outline" className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground">
+                Start Quiz
+              </Button>
+            </CardContent>
+          </Card>
         </div>
 
         {/* AI Recommendations Section */}
@@ -293,6 +313,21 @@ const StudentDashboard = () => {
               Back to Dashboard
             </Button>
             <StudyRecommendations />
+          </div>
+        )}
+
+        {/* Adaptive Quiz Section */}
+        {showQuiz && (
+          <div className="mb-8">
+            <Button 
+              variant="ghost" 
+              className="mb-4"
+              onClick={() => setShowQuiz(false)}
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Dashboard
+            </Button>
+            <AdaptiveQuiz />
           </div>
         )}
 
