@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { GraduationCap, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import Footer from "@/components/Footer";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -112,6 +113,8 @@ const Index = () => {
           ))}
         </div>
       </main>
+
+      <Footer />
     </div>
   );
 };
