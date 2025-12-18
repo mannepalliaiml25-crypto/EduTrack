@@ -506,7 +506,7 @@ const LecturerDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
-                <span className="text-3xl font-bold">{avgAttendance}%</span>
+                <span className="text-3xl font-bold">{Math.round((todayAttendanceCount / 74) * 100)}%</span>
                 <TrendingUp className="w-8 h-8 text-success" />
               </div>
             </CardContent>
