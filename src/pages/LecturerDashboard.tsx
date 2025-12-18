@@ -318,6 +318,7 @@ const LecturerDashboard = () => {
       setSelectedStudents(new Set());
       setShowMarkingView(false);
       fetchRegistrations();
+      fetchAttendanceStats();
     }
     setLoading(false);
   };
@@ -356,8 +357,8 @@ const LecturerDashboard = () => {
           </Button>
 
           {/* Registered Students */}
-          {registrations.length > 0 && (
-            <Card className="mb-6 border-success/50">
+          {registrations.length > 0 ? (
+            <Card className="border-success/50">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-success">
                   <CheckCircle2 className="w-5 h-5" />
@@ -381,79 +382,48 @@ const LecturerDashboard = () => {
                         <p className="font-semibold">{reg.student_name}</p>
                         <p className="text-sm text-muted-foreground">{reg.subject}</p>
                       </div>
-                      <Badge variant="outline" className="border-success text-success">Registered</Badge>
+                      {selectedStudents.has(reg.student_id) ? (
+                        <Badge variant="default" className="bg-success">Selected</Badge>
+                      ) : (
+                        <Badge variant="outline" className="border-success text-success">Registered</Badge>
+                      )}
                     </div>
                   ))}
                 </div>
+                <div className="flex gap-4">
+                  <Button 
+                    variant="outline" 
+                    className="flex-1 border-success text-success hover:bg-success hover:text-success-foreground"
+                    onClick={selectAllRegistered}
+                  >
+                    Select All
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={() => setSelectedStudents(new Set())}
+                  >
+                    Clear Selection
+                  </Button>
+                </div>
                 <Button 
-                  variant="outline" 
-                  className="w-full border-success text-success hover:bg-success hover:text-success-foreground"
-                  onClick={selectAllRegistered}
+                  className="w-full mt-4" 
+                  onClick={handleMarkAttendance} 
+                  disabled={loading || selectedStudents.size === 0}
                 >
-                  Select All Registered
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                  Mark {selectedStudents.size} Present
                 </Button>
               </CardContent>
             </Card>
+          ) : (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">No students have registered for today yet</p>
+              </CardContent>
+            </Card>
           )}
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <UserCheck className="w-5 h-5 text-primary" />
-                All Students
-              </CardTitle>
-              <CardDescription>Select students to mark as present</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {students.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">No students registered yet</p>
-              ) : (
-                <div className="space-y-3">
-                  {students.map((student) => {
-                    const isRegistered = registrations.some(r => r.student_id === student.user_id);
-                    return (
-                      <div 
-                        key={student.user_id} 
-                        className={`flex items-center gap-4 p-4 rounded-lg border transition-colors cursor-pointer ${
-                          isRegistered 
-                            ? 'border-success/30 bg-success/5' 
-                            : 'border-border hover:bg-secondary/50'
-                        }`}
-                        onClick={() => toggleStudentSelection(student.user_id)}
-                      >
-                        <Checkbox 
-                          checked={selectedStudents.has(student.user_id)}
-                          onCheckedChange={() => toggleStudentSelection(student.user_id)}
-                        />
-                        <div className="flex-1">
-                          <p className="font-semibold">{student.full_name}</p>
-                          <p className="text-sm text-muted-foreground">{student.email}</p>
-                        </div>
-                        {isRegistered && (
-                          <Badge variant="outline" className="border-success text-success">Registered</Badge>
-                        )}
-                        {selectedStudents.has(student.user_id) && (
-                          <Badge variant="default" className="bg-success">Selected</Badge>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {students.length > 0 && (
-                <div className="mt-6 flex justify-end gap-4">
-                  <Button variant="outline" onClick={() => setSelectedStudents(new Set())}>
-                    Clear Selection
-                  </Button>
-                  <Button onClick={handleMarkAttendance} disabled={loading || selectedStudents.size === 0}>
-                    <CheckCircle2 className="w-4 h-4 mr-2" />
-                    Mark {selectedStudents.size} Present
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
         </main>
       </div>
     );
