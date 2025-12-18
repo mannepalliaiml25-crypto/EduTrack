@@ -55,6 +55,8 @@ const LecturerDashboard = () => {
   const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState("General Class");
+  const [todayAttendanceCount, setTodayAttendanceCount] = useState(0);
+  const [avgAttendance, setAvgAttendance] = useState(0);
 
   // Fetch pending requests
   const fetchPendingRequests = async () => {
@@ -149,6 +151,41 @@ const LecturerDashboard = () => {
     }
   };
 
+  // Fetch attendance stats
+  const fetchAttendanceStats = async () => {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Get today's attendance count
+    const { count: todayCount } = await supabase
+      .from('attendance_records')
+      .select('*', { count: 'exact', head: true })
+      .eq('attendance_date', today);
+    
+    setTodayAttendanceCount(todayCount || 0);
+
+    // Calculate average attendance rate
+    if (students.length > 0) {
+      const { count: totalRecords } = await supabase
+        .from('attendance_records')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'present');
+      
+      // Get total possible attendance (students * unique dates)
+      const { data: uniqueDates } = await supabase
+        .from('attendance_records')
+        .select('attendance_date')
+        .order('attendance_date', { ascending: false })
+        .limit(30);
+      
+      const uniqueDateCount = new Set(uniqueDates?.map(d => d.attendance_date) || []).size;
+      
+      if (uniqueDateCount > 0 && students.length > 0) {
+        const avgRate = Math.round(((totalRecords || 0) / (students.length * uniqueDateCount)) * 100);
+        setAvgAttendance(Math.min(avgRate, 100));
+      }
+    }
+  };
+
   useEffect(() => {
     fetchPendingRequests();
     fetchStudents();
@@ -190,6 +227,12 @@ const LecturerDashboard = () => {
       supabase.removeChannel(registrationChannel);
     };
   }, []);
+
+  useEffect(() => {
+    if (students.length > 0) {
+      fetchAttendanceStats();
+    }
+  }, [students]);
 
   const handleApproveRequest = async (requestId: string) => {
     setLoading(true);
@@ -460,12 +503,12 @@ const LecturerDashboard = () => {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Classes Today
+                Marked Today
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
-                <span className="text-3xl font-bold">4</span>
+                <span className="text-3xl font-bold">{todayAttendanceCount}</span>
                 <Calendar className="w-8 h-8 text-accent" />
               </div>
             </CardContent>
@@ -493,7 +536,7 @@ const LecturerDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
-                <span className="text-3xl font-bold">82%</span>
+                <span className="text-3xl font-bold">{avgAttendance}%</span>
                 <TrendingUp className="w-8 h-8 text-success" />
               </div>
             </CardContent>
