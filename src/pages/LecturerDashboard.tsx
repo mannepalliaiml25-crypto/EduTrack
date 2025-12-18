@@ -464,7 +464,7 @@ const LecturerDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
-                <span className="text-3xl font-bold">{students.length}</span>
+                <span className="text-3xl font-bold">74</span>
                 <Users className="w-8 h-8 text-primary" />
               </div>
             </CardContent>
