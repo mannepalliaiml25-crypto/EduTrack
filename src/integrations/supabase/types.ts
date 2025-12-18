@@ -44,6 +44,33 @@ export type Database = {
         }
         Relationships: []
       }
+      attendance_registrations: {
+        Row: {
+          created_at: string
+          id: string
+          registration_date: string
+          status: string
+          student_id: string
+          subject: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          registration_date?: string
+          status?: string
+          student_id: string
+          subject: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          registration_date?: string
+          status?: string
+          student_id?: string
+          subject?: string
+        }
+        Relationships: []
+      }
       attendance_requests: {
         Row: {
           created_at: string

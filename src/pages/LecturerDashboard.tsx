@@ -36,13 +36,25 @@ interface StudentProfile {
   email: string;
 }
 
+interface AttendanceRegistration {
+  id: string;
+  student_id: string;
+  subject: string;
+  registration_date: string;
+  status: string;
+  created_at: string;
+  student_name?: string;
+}
+
 const LecturerDashboard = () => {
   const { user, signOut } = useAuth();
   const [showMarkingView, setShowMarkingView] = useState(false);
   const [pendingRequests, setPendingRequests] = useState<AttendanceRequest[]>([]);
   const [students, setStudents] = useState<StudentProfile[]>([]);
+  const [registrations, setRegistrations] = useState<AttendanceRegistration[]>([]);
   const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
+  const [selectedSubject, setSelectedSubject] = useState("General Class");
 
   // Fetch pending requests
   const fetchPendingRequests = async () => {
@@ -104,12 +116,46 @@ const LecturerDashboard = () => {
     }
   };
 
+  // Fetch today's registrations
+  const fetchRegistrations = async () => {
+    const today = new Date().toISOString().split('T')[0];
+    const { data: regs, error } = await supabase
+      .from('attendance_registrations')
+      .select('*')
+      .eq('registration_date', today)
+      .eq('status', 'registered')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching registrations:', error);
+      return;
+    }
+
+    if (regs && regs.length > 0) {
+      const studentIds = regs.map(r => r.student_id);
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, full_name')
+        .in('user_id', studentIds);
+
+      const regsWithNames = regs.map(reg => ({
+        ...reg,
+        student_name: profiles?.find(p => p.user_id === reg.student_id)?.full_name || 'Unknown Student'
+      }));
+
+      setRegistrations(regsWithNames);
+    } else {
+      setRegistrations([]);
+    }
+  };
+
   useEffect(() => {
     fetchPendingRequests();
     fetchStudents();
+    fetchRegistrations();
 
-    // Subscribe to realtime updates for attendance requests
-    const channel = supabase
+    // Subscribe to realtime updates
+    const requestChannel = supabase
       .channel('attendance-requests-changes')
       .on(
         'postgres_changes',
@@ -124,8 +170,24 @@ const LecturerDashboard = () => {
       )
       .subscribe();
 
+    const registrationChannel = supabase
+      .channel('attendance-registrations-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'attendance_registrations'
+        },
+        () => {
+          fetchRegistrations();
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(requestChannel);
+      supabase.removeChannel(registrationChannel);
     };
   }, []);
 
@@ -185,7 +247,7 @@ const LecturerDashboard = () => {
     const records = Array.from(selectedStudents).map(studentId => ({
       student_id: studentId,
       lecturer_id: user?.id,
-      subject: 'General Class',
+      subject: selectedSubject,
       status: 'present'
     }));
 
@@ -197,11 +259,29 @@ const LecturerDashboard = () => {
       toast.error('Failed to mark attendance');
       console.error('Error marking attendance:', error);
     } else {
+      // Update registration status for confirmed students
+      const registeredStudentIds = registrations
+        .filter(r => selectedStudents.has(r.student_id))
+        .map(r => r.id);
+      
+      if (registeredStudentIds.length > 0) {
+        await supabase
+          .from('attendance_registrations')
+          .update({ status: 'confirmed' })
+          .in('id', registeredStudentIds);
+      }
+
       toast.success(`Attendance marked for ${selectedStudents.size} student(s)!`);
       setSelectedStudents(new Set());
       setShowMarkingView(false);
+      fetchRegistrations();
     }
     setLoading(false);
+  };
+
+  const selectAllRegistered = () => {
+    const registeredIds = new Set(registrations.map(r => r.student_id));
+    setSelectedStudents(registeredIds);
   };
 
   if (showMarkingView) {
@@ -232,11 +312,52 @@ const LecturerDashboard = () => {
             Back to Dashboard
           </Button>
 
+          {/* Registered Students */}
+          {registrations.length > 0 && (
+            <Card className="mb-6 border-success/50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-success">
+                  <CheckCircle2 className="w-5 h-5" />
+                  Students Registered Today ({registrations.length})
+                </CardTitle>
+                <CardDescription>These students have registered their attendance</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 mb-4">
+                  {registrations.map((reg) => (
+                    <div 
+                      key={reg.id} 
+                      className="flex items-center gap-4 p-3 rounded-lg border border-success/30 bg-success/5 hover:bg-success/10 transition-colors cursor-pointer"
+                      onClick={() => toggleStudentSelection(reg.student_id)}
+                    >
+                      <Checkbox 
+                        checked={selectedStudents.has(reg.student_id)}
+                        onCheckedChange={() => toggleStudentSelection(reg.student_id)}
+                      />
+                      <div className="flex-1">
+                        <p className="font-semibold">{reg.student_name}</p>
+                        <p className="text-sm text-muted-foreground">{reg.subject}</p>
+                      </div>
+                      <Badge variant="outline" className="border-success text-success">Registered</Badge>
+                    </div>
+                  ))}
+                </div>
+                <Button 
+                  variant="outline" 
+                  className="w-full border-success text-success hover:bg-success hover:text-success-foreground"
+                  onClick={selectAllRegistered}
+                >
+                  Select All Registered
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <UserCheck className="w-5 h-5 text-primary" />
-                Mark Attendance
+                All Students
               </CardTitle>
               <CardDescription>Select students to mark as present</CardDescription>
             </CardHeader>
@@ -245,25 +366,35 @@ const LecturerDashboard = () => {
                 <p className="text-muted-foreground text-center py-8">No students registered yet</p>
               ) : (
                 <div className="space-y-3">
-                  {students.map((student) => (
-                    <div 
-                      key={student.user_id} 
-                      className="flex items-center gap-4 p-4 rounded-lg border border-border hover:bg-secondary/50 transition-colors cursor-pointer"
-                      onClick={() => toggleStudentSelection(student.user_id)}
-                    >
-                      <Checkbox 
-                        checked={selectedStudents.has(student.user_id)}
-                        onCheckedChange={() => toggleStudentSelection(student.user_id)}
-                      />
-                      <div className="flex-1">
-                        <p className="font-semibold">{student.full_name}</p>
-                        <p className="text-sm text-muted-foreground">{student.email}</p>
+                  {students.map((student) => {
+                    const isRegistered = registrations.some(r => r.student_id === student.user_id);
+                    return (
+                      <div 
+                        key={student.user_id} 
+                        className={`flex items-center gap-4 p-4 rounded-lg border transition-colors cursor-pointer ${
+                          isRegistered 
+                            ? 'border-success/30 bg-success/5' 
+                            : 'border-border hover:bg-secondary/50'
+                        }`}
+                        onClick={() => toggleStudentSelection(student.user_id)}
+                      >
+                        <Checkbox 
+                          checked={selectedStudents.has(student.user_id)}
+                          onCheckedChange={() => toggleStudentSelection(student.user_id)}
+                        />
+                        <div className="flex-1">
+                          <p className="font-semibold">{student.full_name}</p>
+                          <p className="text-sm text-muted-foreground">{student.email}</p>
+                        </div>
+                        {isRegistered && (
+                          <Badge variant="outline" className="border-success text-success">Registered</Badge>
+                        )}
+                        {selectedStudents.has(student.user_id) && (
+                          <Badge variant="default" className="bg-success">Selected</Badge>
+                        )}
                       </div>
-                      {selectedStudents.has(student.user_id) && (
-                        <Badge variant="default" className="bg-success">Selected</Badge>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 
