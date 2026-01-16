@@ -137,12 +137,12 @@ const LecturerDashboard = () => {
       const studentIds = regs.map(r => r.student_id);
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('user_id, full_name')
+        .select('user_id, email')
         .in('user_id', studentIds);
 
       const regsWithNames = regs.map(reg => ({
         ...reg,
-        student_name: profiles?.find(p => p.user_id === reg.student_id)?.full_name || 'Unknown Student'
+        student_name: profiles?.find(p => p.user_id === reg.student_id)?.email || 'Unknown Student'
       }));
 
       setRegistrations(regsWithNames);
