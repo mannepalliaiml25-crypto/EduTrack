@@ -76,12 +76,12 @@ const LecturerDashboard = () => {
       const studentIds = requests.map(r => r.student_id);
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('user_id, full_name')
+        .select('user_id, email')
         .in('user_id', studentIds);
 
       const requestsWithNames = requests.map(request => ({
         ...request,
-        student_name: profiles?.find(p => p.user_id === request.student_id)?.full_name || 'Unknown Student'
+        student_name: profiles?.find(p => p.user_id === request.student_id)?.email || 'Unknown Student'
       }));
 
       setPendingRequests(requestsWithNames);
