@@ -55,12 +55,12 @@ const StudentDashboard = () => {
   const [showAIRecommendations, setShowAIRecommendations] = useState(false);
   const [showQuiz, setShowQuiz] = useState(false);
   const [showRequestDialog, setShowRequestDialog] = useState(false);
-  const [showRegisterDialog, setShowRegisterDialog] = useState(false);
+  
   const [myRequests, setMyRequests] = useState<AttendanceRequest[]>([]);
-  const [myRegistrations, setMyRegistrations] = useState<AttendanceRegistration[]>([]);
+  
   const [subject, setSubject] = useState("");
   const [reason, setReason] = useState("");
-  const [registerSubject, setRegisterSubject] = useState("");
+  
   const [loading, setLoading] = useState(false);
   const { user, signOut } = useAuth();
   
@@ -84,51 +84,11 @@ const StudentDashboard = () => {
     setMyRequests(data || []);
   };
 
-  const fetchMyRegistrations = async () => {
-    const { data, error } = await supabase
-      .from('attendance_registrations')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(5);
-
-    if (error) {
-      console.error('Error fetching registrations:', error);
-      return;
-    }
-
-    setMyRegistrations(data || []);
-  };
 
   useEffect(() => {
     fetchMyRequests();
-    fetchMyRegistrations();
   }, []);
 
-  const handleRegisterAttendance = async () => {
-    if (!registerSubject.trim()) {
-      toast.error('Please enter a subject');
-      return;
-    }
-
-    setLoading(true);
-    const { error } = await supabase
-      .from('attendance_registrations')
-      .insert({
-        student_id: user?.id,
-        subject: registerSubject.trim()
-      });
-
-    if (error) {
-      toast.error('Failed to register attendance');
-      console.error('Error registering attendance:', error);
-    } else {
-      toast.success('Attendance registered! Wait for lecturer confirmation.');
-      setRegisterSubject("");
-      setShowRegisterDialog(false);
-      fetchMyRegistrations();
-    }
-    setLoading(false);
-  };
 
   const handleSubmitRequest = async () => {
     if (!subject.trim()) {
@@ -263,53 +223,7 @@ const StudentDashboard = () => {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="hover:shadow-medium transition-shadow">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-success" />
-                Register Attendance
-              </CardTitle>
-              <CardDescription>
-                Register your presence in class
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Dialog open={showRegisterDialog} onOpenChange={setShowRegisterDialog}>
-                <DialogTrigger asChild>
-                  <Button className="w-full bg-success hover:bg-success/90">Register Now</Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Register Attendance</DialogTitle>
-                    <DialogDescription>
-                      Register your presence for today's class
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4 mt-4">
-                    <div>
-                      <Label htmlFor="registerSubject">Subject / Class Name</Label>
-                      <Input
-                        id="registerSubject"
-                        placeholder="e.g., Data Structures"
-                        value={registerSubject}
-                        onChange={(e) => setRegisterSubject(e.target.value)}
-                      />
-                    </div>
-                    <Button 
-                      className="w-full bg-success hover:bg-success/90" 
-                      onClick={handleRegisterAttendance}
-                      disabled={loading}
-                    >
-                      <CheckCircle2 className="w-4 h-4 mr-2" />
-                      Confirm Registration
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </CardContent>
-          </Card>
-
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           <Card className="hover:shadow-medium transition-shadow">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
