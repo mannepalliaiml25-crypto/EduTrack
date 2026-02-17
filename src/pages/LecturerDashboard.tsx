@@ -49,12 +49,15 @@ interface AttendanceRegistration {
 const LecturerDashboard = () => {
   const { user, signOut } = useAuth();
   const [showMarkingView, setShowMarkingView] = useState(false);
+  const [showDailyAttendance, setShowDailyAttendance] = useState(false);
   const [pendingRequests, setPendingRequests] = useState<AttendanceRequest[]>([]);
   const [students, setStudents] = useState<StudentProfile[]>([]);
   const [registrations, setRegistrations] = useState<AttendanceRegistration[]>([]);
   const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set());
+  const [dailySelectedStudents, setDailySelectedStudents] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState("General Class");
+  const [dailySubject, setDailySubject] = useState("General Class");
   const [todayAttendanceCount, setTodayAttendanceCount] = useState(0);
   const [avgAttendance, setAvgAttendance] = useState(0);
 
@@ -328,6 +331,152 @@ const LecturerDashboard = () => {
     setSelectedStudents(registeredIds);
   };
 
+  const toggleDailyStudentSelection = (studentId: string) => {
+    setDailySelectedStudents(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(studentId)) {
+        newSet.delete(studentId);
+      } else {
+        newSet.add(studentId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleDailyMarkAttendance = async () => {
+    if (dailySelectedStudents.size === 0) {
+      toast.error('Please select at least one student');
+      return;
+    }
+
+    setLoading(true);
+    const records = Array.from(dailySelectedStudents).map(studentId => ({
+      student_id: studentId,
+      lecturer_id: user?.id,
+      subject: dailySubject,
+      status: 'present'
+    }));
+
+    const { error } = await supabase
+      .from('attendance_records')
+      .insert(records);
+
+    if (error) {
+      toast.error('Failed to mark attendance');
+      console.error('Error marking attendance:', error);
+    } else {
+      toast.success(`Attendance marked for ${dailySelectedStudents.size} student(s)!`);
+      setDailySelectedStudents(new Set());
+      setShowDailyAttendance(false);
+      fetchAttendanceStats();
+    }
+    setLoading(false);
+  };
+
+  if (showDailyAttendance) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-background">
+        <header className="border-b border-border/40 backdrop-blur-sm bg-background/60 sticky top-0 z-50">
+          <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <GraduationCap className="w-8 h-8 text-primary" />
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                EduTrack
+              </h1>
+            </div>
+            <Button variant="outline" onClick={signOut}>
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
+            </Button>
+          </div>
+        </header>
+
+        <main className="container mx-auto px-4 py-8">
+          <Button 
+            variant="ghost" 
+            className="mb-4"
+            onClick={() => setShowDailyAttendance(false)}
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Dashboard
+          </Button>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-primary" />
+                Daily Attendance — {new Date().toLocaleDateString()}
+              </CardTitle>
+              <CardDescription>Select students present in today's class</CardDescription>
+              <div className="mt-2">
+                <input
+                  type="text"
+                  placeholder="Subject (e.g., Data Structures)"
+                  value={dailySubject}
+                  onChange={(e) => setDailySubject(e.target.value)}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                />
+              </div>
+            </CardHeader>
+            <CardContent>
+              {students.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">No students registered in the system</p>
+              ) : (
+                <>
+                  <div className="space-y-2 mb-4">
+                    {students.map((student) => (
+                      <div 
+                        key={student.user_id} 
+                        className="flex items-center gap-4 p-3 rounded-lg border border-border hover:bg-secondary/50 transition-colors cursor-pointer"
+                        onClick={() => toggleDailyStudentSelection(student.user_id)}
+                      >
+                        <Checkbox 
+                          checked={dailySelectedStudents.has(student.user_id)}
+                          onCheckedChange={() => toggleDailyStudentSelection(student.user_id)}
+                        />
+                        <div className="flex-1">
+                          <p className="font-semibold">{student.email}</p>
+                          <p className="text-sm text-muted-foreground">{student.full_name}</p>
+                        </div>
+                        {dailySelectedStudents.has(student.user_id) && (
+                          <Badge variant="default">Present</Badge>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex gap-4 mb-4">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={() => setDailySelectedStudents(new Set(students.map(s => s.user_id)))}
+                    >
+                      Select All
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={() => setDailySelectedStudents(new Set())}
+                    >
+                      Clear All
+                    </Button>
+                  </div>
+                  <Button 
+                    className="w-full" 
+                    onClick={handleDailyMarkAttendance} 
+                    disabled={loading || dailySelectedStudents.size === 0}
+                  >
+                    <CheckCircle2 className="w-4 h-4 mr-2" />
+                    Mark {dailySelectedStudents.size} Student(s) Present
+                  </Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </main>
+      </div>
+    );
+  }
+
   if (showMarkingView) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-background">
@@ -464,7 +613,7 @@ const LecturerDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
-                <span className="text-3xl font-bold">74</span>
+                <span className="text-3xl font-bold">{students.length}</span>
                 <Users className="w-8 h-8 text-primary" />
               </div>
             </CardContent>
@@ -506,7 +655,7 @@ const LecturerDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
-                <span className="text-3xl font-bold">{Math.round((todayAttendanceCount / 74) * 100)}%</span>
+                <span className="text-3xl font-bold">{students.length > 0 ? Math.round((todayAttendanceCount / students.length) * 100) : 0}%</span>
                 <TrendingUp className="w-8 h-8 text-success" />
               </div>
             </CardContent>
@@ -514,7 +663,24 @@ const LecturerDashboard = () => {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid md:grid-cols-2 gap-6 mb-8">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          <Card className="hover:shadow-medium transition-shadow cursor-pointer">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-primary" />
+                Daily Attendance
+              </CardTitle>
+              <CardDescription>
+                Take attendance of all registered students
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button className="w-full" onClick={() => setShowDailyAttendance(true)}>
+                Take Attendance ({students.length} students)
+              </Button>
+            </CardContent>
+          </Card>
+
           <Card className="hover:shadow-medium transition-shadow cursor-pointer">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -522,11 +688,11 @@ const LecturerDashboard = () => {
                 Mark Attendance
               </CardTitle>
               <CardDescription>
-                Mark attendance for your current class
+                Mark attendance for registered students
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button className="w-full" onClick={() => setShowMarkingView(true)}>
+              <Button variant="outline" className="w-full" onClick={() => setShowMarkingView(true)}>
                 Start Marking
               </Button>
             </CardContent>
