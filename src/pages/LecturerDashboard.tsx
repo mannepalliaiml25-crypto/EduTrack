@@ -8,7 +8,6 @@ import {
   TrendingUp, 
   CheckCircle2,
   Clock,
-  UserCheck,
   GraduationCap,
   LogOut,
   ArrowLeft,
@@ -36,27 +35,16 @@ interface StudentProfile {
   email: string;
 }
 
-interface AttendanceRegistration {
-  id: string;
-  student_id: string;
-  subject: string;
-  registration_date: string;
-  status: string;
-  created_at: string;
-  student_name?: string;
-}
 
 const LecturerDashboard = () => {
   const { user, signOut } = useAuth();
-  const [showMarkingView, setShowMarkingView] = useState(false);
+  
   const [showDailyAttendance, setShowDailyAttendance] = useState(false);
   const [pendingRequests, setPendingRequests] = useState<AttendanceRequest[]>([]);
   const [students, setStudents] = useState<StudentProfile[]>([]);
-  const [registrations, setRegistrations] = useState<AttendanceRegistration[]>([]);
-  const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set());
   const [dailySelectedStudents, setDailySelectedStudents] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
-  const [selectedSubject, setSelectedSubject] = useState("General Class");
+  
   const [dailySubject, setDailySubject] = useState("General Class");
   const [todayAttendanceCount, setTodayAttendanceCount] = useState(0);
   const [avgAttendance, setAvgAttendance] = useState(0);
@@ -121,38 +109,6 @@ const LecturerDashboard = () => {
     }
   };
 
-  // Fetch today's registrations
-  const fetchRegistrations = async () => {
-    const today = new Date().toISOString().split('T')[0];
-    const { data: regs, error } = await supabase
-      .from('attendance_registrations')
-      .select('*')
-      .eq('registration_date', today)
-      .eq('status', 'registered')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching registrations:', error);
-      return;
-    }
-
-    if (regs && regs.length > 0) {
-      const studentIds = regs.map(r => r.student_id);
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('user_id, email')
-        .in('user_id', studentIds);
-
-      const regsWithNames = regs.map(reg => ({
-        ...reg,
-        student_name: profiles?.find(p => p.user_id === reg.student_id)?.email || 'Unknown Student'
-      }));
-
-      setRegistrations(regsWithNames);
-    } else {
-      setRegistrations([]);
-    }
-  };
 
   // Fetch attendance stats
   const fetchAttendanceStats = async () => {
@@ -192,7 +148,6 @@ const LecturerDashboard = () => {
   useEffect(() => {
     fetchPendingRequests();
     fetchStudents();
-    fetchRegistrations();
 
     // Subscribe to realtime updates
     const requestChannel = supabase
@@ -210,24 +165,8 @@ const LecturerDashboard = () => {
       )
       .subscribe();
 
-    const registrationChannel = supabase
-      .channel('attendance-registrations-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'attendance_registrations'
-        },
-        () => {
-          fetchRegistrations();
-        }
-      )
-      .subscribe();
-
     return () => {
       supabase.removeChannel(requestChannel);
-      supabase.removeChannel(registrationChannel);
     };
   }, []);
 
@@ -271,65 +210,6 @@ const LecturerDashboard = () => {
     setLoading(false);
   };
 
-  const toggleStudentSelection = (studentId: string) => {
-    setSelectedStudents(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(studentId)) {
-        newSet.delete(studentId);
-      } else {
-        newSet.add(studentId);
-      }
-      return newSet;
-    });
-  };
-
-  const handleMarkAttendance = async () => {
-    if (selectedStudents.size === 0) {
-      toast.error('Please select at least one student');
-      return;
-    }
-
-    setLoading(true);
-    const records = Array.from(selectedStudents).map(studentId => ({
-      student_id: studentId,
-      lecturer_id: user?.id,
-      subject: selectedSubject,
-      status: 'present'
-    }));
-
-    const { error } = await supabase
-      .from('attendance_records')
-      .insert(records);
-
-    if (error) {
-      toast.error('Failed to mark attendance');
-      console.error('Error marking attendance:', error);
-    } else {
-      // Update registration status for confirmed students
-      const registeredStudentIds = registrations
-        .filter(r => selectedStudents.has(r.student_id))
-        .map(r => r.id);
-      
-      if (registeredStudentIds.length > 0) {
-        await supabase
-          .from('attendance_registrations')
-          .update({ status: 'confirmed' })
-          .in('id', registeredStudentIds);
-      }
-
-      toast.success(`Attendance marked for ${selectedStudents.size} student(s)!`);
-      setSelectedStudents(new Set());
-      setShowMarkingView(false);
-      fetchRegistrations();
-      fetchAttendanceStats();
-    }
-    setLoading(false);
-  };
-
-  const selectAllRegistered = () => {
-    const registeredIds = new Set(registrations.map(r => r.student_id));
-    setSelectedStudents(registeredIds);
-  };
 
   const toggleDailyStudentSelection = (studentId: string) => {
     setDailySelectedStudents(prev => {
@@ -477,106 +357,6 @@ const LecturerDashboard = () => {
     );
   }
 
-  if (showMarkingView) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-background">
-        <header className="border-b border-border/40 backdrop-blur-sm bg-background/60 sticky top-0 z-50">
-          <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <GraduationCap className="w-8 h-8 text-primary" />
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                EduTrack
-              </h1>
-            </div>
-            <Button variant="outline" onClick={signOut}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Logout
-            </Button>
-          </div>
-        </header>
-
-        <main className="container mx-auto px-4 py-8">
-          <Button 
-            variant="ghost" 
-            className="mb-4"
-            onClick={() => setShowMarkingView(false)}
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Dashboard
-          </Button>
-
-          {/* Registered Students */}
-          {registrations.length > 0 ? (
-            <Card className="border-success/50">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-success">
-                  <CheckCircle2 className="w-5 h-5" />
-                  Students Registered Today ({registrations.length})
-                </CardTitle>
-                <CardDescription>These students have registered their attendance</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2 mb-4">
-                  {registrations.map((reg) => (
-                    <div 
-                      key={reg.id} 
-                      className="flex items-center gap-4 p-3 rounded-lg border border-success/30 bg-success/5 hover:bg-success/10 transition-colors cursor-pointer"
-                      onClick={() => toggleStudentSelection(reg.student_id)}
-                    >
-                      <Checkbox 
-                        checked={selectedStudents.has(reg.student_id)}
-                        onCheckedChange={() => toggleStudentSelection(reg.student_id)}
-                      />
-                      <div className="flex-1">
-                        <p className="font-semibold">{reg.student_name}</p>
-                        <p className="text-sm text-muted-foreground">{reg.subject}</p>
-                      </div>
-                      {selectedStudents.has(reg.student_id) ? (
-                        <Badge variant="default" className="bg-success">Selected</Badge>
-                      ) : (
-                        <Badge variant="outline" className="border-success text-success">Registered</Badge>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                <div className="flex gap-4">
-                  <Button 
-                    variant="outline" 
-                    className="flex-1 border-success text-success hover:bg-success hover:text-success-foreground"
-                    onClick={selectAllRegistered}
-                  >
-                    Select All
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="flex-1"
-                    onClick={() => setSelectedStudents(new Set())}
-                  >
-                    Clear Selection
-                  </Button>
-                </div>
-                <Button 
-                  className="w-full mt-4" 
-                  onClick={handleMarkAttendance} 
-                  disabled={loading || selectedStudents.size === 0}
-                >
-                  <CheckCircle2 className="w-4 h-4 mr-2" />
-                  Mark {selectedStudents.size} Present
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">No students have registered for today yet</p>
-              </CardContent>
-            </Card>
-          )}
-        </main>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-background">
@@ -663,7 +443,7 @@ const LecturerDashboard = () => {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        <div className="grid md:grid-cols-2 gap-6 mb-8">
           <Card className="hover:shadow-medium transition-shadow cursor-pointer">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -677,23 +457,6 @@ const LecturerDashboard = () => {
             <CardContent>
               <Button className="w-full" onClick={() => setShowDailyAttendance(true)}>
                 Take Attendance ({students.length} students)
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="hover:shadow-medium transition-shadow cursor-pointer">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <UserCheck className="w-5 h-5 text-primary" />
-                Mark Attendance
-              </CardTitle>
-              <CardDescription>
-                Mark attendance for registered students
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button variant="outline" className="w-full" onClick={() => setShowMarkingView(true)}>
-                Start Marking
               </Button>
             </CardContent>
           </Card>
