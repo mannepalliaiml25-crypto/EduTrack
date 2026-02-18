@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { AISolver } from "@/components/AISolver";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +19,8 @@ import {
   LogOut,
   ArrowLeft,
   Send,
-  Brain
+  Brain,
+  Sparkles
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { StudyRecommendations } from "@/components/StudyRecommendations";
@@ -54,6 +56,7 @@ interface AttendanceRegistration {
 const StudentDashboard = () => {
   const [showAIRecommendations, setShowAIRecommendations] = useState(false);
   const [showQuiz, setShowQuiz] = useState(false);
+  const [showAISolver, setShowAISolver] = useState(false);
   const [showRequestDialog, setShowRequestDialog] = useState(false);
   
   const [myRequests, setMyRequests] = useState<AttendanceRequest[]>([]);
@@ -223,7 +226,7 @@ const StudentDashboard = () => {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card className="hover:shadow-medium transition-shadow">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -308,7 +311,24 @@ const StudentDashboard = () => {
             </CardHeader>
             <CardContent>
               <Button variant="outline" className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground">
-                Start Quiz
+              Start Quiz
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-medium transition-shadow cursor-pointer" onClick={() => setShowAISolver(true)}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-accent" />
+                AI Solver
+              </CardTitle>
+              <CardDescription>
+                Get step-by-step solutions to any problem
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button variant="outline" className="w-full border-accent text-accent hover:bg-accent hover:text-accent-foreground">
+                Ask AI
               </Button>
             </CardContent>
           </Card>
@@ -341,6 +361,21 @@ const StudentDashboard = () => {
               Back to Dashboard
             </Button>
             <AdaptiveQuiz />
+          </div>
+        )}
+
+        {/* AI Solver Section */}
+        {showAISolver && (
+          <div className="mb-8">
+            <Button 
+              variant="ghost" 
+              className="mb-4"
+              onClick={() => setShowAISolver(false)}
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Dashboard
+            </Button>
+            <AISolver />
           </div>
         )}
 
