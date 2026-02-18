@@ -5,3 +5,6 @@ verify_jwt = true
 
 [functions.study-recommendations]
 verify_jwt = true
+
+[functions.ai-solver]
+verify_jwt = false
