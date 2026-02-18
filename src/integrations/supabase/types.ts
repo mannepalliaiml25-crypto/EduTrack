@@ -137,6 +137,39 @@ export type Database = {
         }
         Relationships: []
       }
+      student_marks: {
+        Row: {
+          created_at: string
+          id: string
+          lecturer_id: string
+          marks: number
+          max_marks: number
+          student_id: string
+          subject: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lecturer_id: string
+          marks?: number
+          max_marks?: number
+          student_id: string
+          subject: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lecturer_id?: string
+          marks?: number
+          max_marks?: number
+          student_id?: string
+          subject?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       students: {
         Row: {
           created_at: string
