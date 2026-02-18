@@ -66,11 +66,11 @@ const StudentDashboard = () => {
   
   const [loading, setLoading] = useState(false);
   const { user, signOut } = useAuth();
+  const [performanceScore, setPerformanceScore] = useState<number | null>(null);
   
   // Mock data
   const attendancePercentage = 72;
   const requiredPercentage = 75;
-  const performanceScore = 78;
 
   const fetchMyRequests = async () => {
     const { data, error } = await supabase
@@ -87,10 +87,32 @@ const StudentDashboard = () => {
     setMyRequests(data || []);
   };
 
+  const fetchPerformanceScore = async () => {
+    if (!user?.id) return;
+    const { data, error } = await supabase
+      .from('student_marks')
+      .select('marks')
+      .eq('student_id', user.id);
+
+    if (error) {
+      console.error('Error fetching marks:', error);
+      return;
+    }
+
+    if (data && data.length > 0) {
+      const total = data.reduce((sum, row) => sum + row.marks, 0);
+      // Average out of 400 (4 subjects × 100)
+      const avg = (total / 400) * 100;
+      setPerformanceScore(parseFloat(avg.toFixed(1)));
+    } else {
+      setPerformanceScore(null);
+    }
+  };
 
   useEffect(() => {
     fetchMyRequests();
-  }, []);
+    fetchPerformanceScore();
+  }, [user]);
 
 
   const handleSubmitRequest = async () => {
@@ -188,10 +210,10 @@ const StudentDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between mb-2">
-                <span className="text-3xl font-bold">{performanceScore}%</span>
+                <span className="text-3xl font-bold">{performanceScore !== null ? `${performanceScore}%` : 'N/A'}</span>
                 <TrendingUp className="w-8 h-8 text-success" />
               </div>
-              <Progress value={performanceScore} className="h-2 [&>div]:bg-success" />
+              <Progress value={performanceScore ?? 0} className="h-2 [&>div]:bg-success" />
             </CardContent>
           </Card>
 

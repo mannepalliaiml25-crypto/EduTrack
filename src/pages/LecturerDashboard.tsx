@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { 
   Users, 
   Calendar, 
@@ -11,7 +12,9 @@ import {
   GraduationCap,
   LogOut,
   ArrowLeft,
-  X
+  X,
+  FileSpreadsheet,
+  Save
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,10 +39,13 @@ interface StudentProfile {
 }
 
 
+const SUBJECTS = ["Quantum Physics", "Calculus And Linear Algebra", "IEC", "Programming In C"];
+
 const LecturerDashboard = () => {
   const { user, signOut } = useAuth();
   
   const [showDailyAttendance, setShowDailyAttendance] = useState(false);
+  const [showPerformanceReport, setShowPerformanceReport] = useState(false);
   const [pendingRequests, setPendingRequests] = useState<AttendanceRequest[]>([]);
   const [students, setStudents] = useState<StudentProfile[]>([]);
   const [dailySelectedStudents, setDailySelectedStudents] = useState<Set<string>>(new Set());
@@ -48,6 +54,9 @@ const LecturerDashboard = () => {
   const [dailySubject, setDailySubject] = useState("General Class");
   const [todayAttendanceCount, setTodayAttendanceCount] = useState(0);
   const [avgAttendance, setAvgAttendance] = useState(0);
+  
+  // Performance Report state: marksGrid[subject][student_id] = marks
+  const [marksGrid, setMarksGrid] = useState<Record<string, Record<string, number>>>({});
 
   // Fetch pending requests
   const fetchPendingRequests = async () => {
@@ -145,11 +154,79 @@ const LecturerDashboard = () => {
     }
   };
 
+  // Fetch existing marks for the grid
+  const fetchExistingMarks = async () => {
+    const { data, error } = await supabase
+      .from('student_marks')
+      .select('student_id, subject, marks');
+
+    if (error) {
+      console.error('Error fetching marks:', error);
+      return;
+    }
+
+    const grid: Record<string, Record<string, number>> = {};
+    SUBJECTS.forEach(sub => { grid[sub] = {}; });
+    data?.forEach(row => {
+      if (grid[row.subject]) {
+        grid[row.subject][row.student_id] = row.marks;
+      }
+    });
+    setMarksGrid(grid);
+  };
+
+  const handleSaveMarks = async () => {
+    setLoading(true);
+    const upserts: { student_id: string; subject: string; marks: number; lecturer_id: string; max_marks: number }[] = [];
+    
+    SUBJECTS.forEach(subject => {
+      students.forEach(student => {
+        const marks = marksGrid[subject]?.[student.user_id] ?? 0;
+        upserts.push({
+          student_id: student.user_id,
+          subject,
+          marks,
+          max_marks: 100,
+          lecturer_id: user?.id || '',
+        });
+      });
+    });
+
+    // Upsert in batches
+    const { error } = await supabase
+      .from('student_marks')
+      .upsert(upserts, { onConflict: 'student_id,subject' });
+
+    if (error) {
+      toast.error('Failed to save marks');
+      console.error('Error saving marks:', error);
+    } else {
+      toast.success('Marks saved successfully!');
+    }
+    setLoading(false);
+  };
+
+  const updateMark = (subject: string, studentId: string, value: string) => {
+    const num = Math.max(0, Math.min(100, parseInt(value) || 0));
+    setMarksGrid(prev => ({
+      ...prev,
+      [subject]: { ...prev[subject], [studentId]: num }
+    }));
+  };
+
+  const getStudentAverage = (studentId: string) => {
+    let total = 0;
+    SUBJECTS.forEach(sub => {
+      total += marksGrid[sub]?.[studentId] ?? 0;
+    });
+    // 4 subjects × 100 = 400 total, percentage out of 400
+    return ((total / 400) * 100).toFixed(1);
+  };
+
   useEffect(() => {
     fetchPendingRequests();
     fetchStudents();
 
-    // Subscribe to realtime updates
     const requestChannel = supabase
       .channel('attendance-requests-changes')
       .on(
@@ -173,6 +250,7 @@ const LecturerDashboard = () => {
   useEffect(() => {
     if (students.length > 0) {
       fetchAttendanceStats();
+      fetchExistingMarks();
     }
   }, [students]);
 
@@ -252,6 +330,106 @@ const LecturerDashboard = () => {
     }
     setLoading(false);
   };
+
+  if (showPerformanceReport) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-background">
+        <header className="border-b border-border/40 backdrop-blur-sm bg-background/60 sticky top-0 z-50">
+          <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <GraduationCap className="w-8 h-8 text-primary" />
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                EduTrack
+              </h1>
+            </div>
+            <Button variant="outline" onClick={signOut}>
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
+            </Button>
+          </div>
+        </header>
+
+        <main className="container mx-auto px-4 py-8">
+          <Button 
+            variant="ghost" 
+            className="mb-4"
+            onClick={() => setShowPerformanceReport(false)}
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Dashboard
+          </Button>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileSpreadsheet className="w-5 h-5 text-primary" />
+                Performance Report — Enter Marks (out of 100 per subject)
+              </CardTitle>
+              <CardDescription>Subjects as rows, students as columns. Average is calculated out of 400.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {students.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">No students registered</p>
+              ) : (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm border-collapse">
+                      <thead>
+                        <tr className="border-b border-border">
+                          <th className="text-left p-2 font-semibold sticky left-0 bg-background min-w-[200px]">Subject</th>
+                          {students.map(s => (
+                            <th key={s.user_id} className="p-2 font-semibold text-center min-w-[120px]">
+                              <div className="text-xs">{s.email.split('@')[0]}</div>
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {SUBJECTS.map(subject => (
+                          <tr key={subject} className="border-b border-border/50 hover:bg-secondary/30">
+                            <td className="p-2 font-medium sticky left-0 bg-background">{subject}</td>
+                            {students.map(s => (
+                              <td key={s.user_id} className="p-2 text-center">
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  max={100}
+                                  className="w-20 mx-auto text-center"
+                                  value={marksGrid[subject]?.[s.user_id] ?? 0}
+                                  onChange={(e) => updateMark(subject, s.user_id, e.target.value)}
+                                />
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                        {/* Average row */}
+                        <tr className="border-t-2 border-primary/30 bg-primary/5 font-bold">
+                          <td className="p-2 sticky left-0 bg-primary/5">Average (%)</td>
+                          {students.map(s => (
+                            <td key={s.user_id} className="p-2 text-center">
+                              <span className="text-primary">{getStudentAverage(s.user_id)}%</span>
+                            </td>
+                          ))}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <Button 
+                    className="w-full mt-6" 
+                    onClick={handleSaveMarks}
+                    disabled={loading}
+                  >
+                    <Save className="w-4 h-4 mr-2" />
+                    Save All Marks
+                  </Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </main>
+      </div>
+    );
+  }
 
   if (showDailyAttendance) {
     return (
@@ -443,7 +621,7 @@ const LecturerDashboard = () => {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid md:grid-cols-2 gap-6 mb-8">
+        <div className="grid md:grid-cols-3 gap-6 mb-8">
           <Card className="hover:shadow-medium transition-shadow cursor-pointer">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -457,6 +635,23 @@ const LecturerDashboard = () => {
             <CardContent>
               <Button className="w-full" onClick={() => setShowDailyAttendance(true)}>
                 Take Attendance ({students.length} students)
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-medium transition-shadow cursor-pointer">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileSpreadsheet className="w-5 h-5 text-success" />
+                Performance Report
+              </CardTitle>
+              <CardDescription>
+                Enter marks and view student averages
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button variant="outline" className="w-full border-success text-success hover:bg-success hover:text-success-foreground" onClick={() => setShowPerformanceReport(true)}>
+                Enter Marks
               </Button>
             </CardContent>
           </Card>
