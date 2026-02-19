@@ -323,6 +323,15 @@ const LecturerDashboard = () => {
       toast.error('Failed to mark attendance');
       console.error('Error marking attendance:', error);
     } else {
+      // Send notifications to each marked student
+      const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      const notifications = Array.from(dailySelectedStudents).map(studentId => ({
+        user_id: studentId,
+        title: 'Attendance Marked',
+        message: `Your attendance has been marked for "${dailySubject}" on ${today}.`
+      }));
+      await supabase.from('notifications').insert(notifications);
+
       toast.success(`Attendance marked for ${dailySelectedStudents.size} student(s)!`);
       setDailySelectedStudents(new Set());
       setShowDailyAttendance(false);
