@@ -112,6 +112,60 @@ const StudentDashboard = () => {
   useEffect(() => {
     fetchMyRequests();
     fetchPerformanceScore();
+
+    // Subscribe to real-time notifications
+    if (user?.id) {
+      const notifChannel = supabase
+        .channel('student-notifications')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload: any) => {
+            const notif = payload.new;
+            toast.success(notif.title, {
+              description: notif.message,
+              duration: 8000,
+            });
+          }
+        )
+        .subscribe();
+
+      // Also fetch any unread notifications on load
+      const fetchUnread = async () => {
+        const { data } = await supabase
+          .from('notifications')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('is_read', false)
+          .order('created_at', { ascending: false })
+          .limit(5);
+
+        if (data && data.length > 0) {
+          data.forEach((notif: any) => {
+            toast.info(notif.title, {
+              description: notif.message,
+              duration: 6000,
+            });
+          });
+          // Mark them as read
+          const ids = data.map((n: any) => n.id);
+          await supabase
+            .from('notifications')
+            .update({ is_read: true })
+            .in('id', ids);
+        }
+      };
+      fetchUnread();
+
+      return () => {
+        supabase.removeChannel(notifChannel);
+      };
+    }
   }, [user]);
 
 
